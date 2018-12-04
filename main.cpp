@@ -72,6 +72,8 @@ const std::vector<const char*> validationLayers = {
 		VkInstance instance;
 		VkDebugUtilsMessengerEXT callback;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		VkDevice lDevice;
+		VkQueue graphicsQueue;
 		
 		// Open a window, using the vulkan API for rendering, which is WIDTHxHEIGHT 
 		// in size (and fixed size).
@@ -275,11 +277,48 @@ const std::vector<const char*> validationLayers = {
 					throw std::runtime_error("No suitable GPUs found!");
 				}
 			}
+			
+			void createLogicalDevice(){
+				QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+				// Used to create a single graphics queue only.
+				VkDeviceQueueCreateInfo queueCreateInfo = {};
+				queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+				queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+				queueCreateInfo.queueCount = 1;
+
+				float queuePriority = 1.0f;
+				queueCreateInfo.pQueuePriorities = & queuePriority;
+
+				// Not interested in any features at the moment
+				VkPhysicalDeviceFeatures deviceFeatures = {};
+				
+				// Create a logical device
+				VkDeviceCreateInfo createInfo = {};
+				createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+				createInfo.pQueueCreateInfos = &queueCreateInfo;
+				createInfo.queueCreateInfoCount = 1;
+				createInfo.pEnabledFeatures = &deviceFeatures;
+				//info on extensions and validation layers
+				createInfo.enabledExtensionCount = 0;
+
+				createInfo.enabledLayerCount = 
+					static_cast<uint32_t>(validationLayers.size());
+				createInfo.ppEnabledLayerNames = validationLayers.data();
+				
+				if(vkCreateDevice(physicalDevice, &createInfo, nullptr, &lDevice) != VK_SUCCESS){
+					throw std::runtime_error("Creating logical GPU failed!");
+				}
+			
+				//Get the single graphics queue	
+				vkGetDeviceQueue(lDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);	
+			}
 
 		void initVulkan(){
 			createInstance();
 			setupDebugCallback();
-			selectPhysicalDevice();	
+			selectPhysicalDevice();
+			createLogicalDevice();
 		}
 
 		void mainLoop(){
@@ -291,6 +330,7 @@ const std::vector<const char*> validationLayers = {
 		}
 		
 		void cleanup(){
+			vkDestroyDevice(lDevice, nullptr);
 			DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
 
 			vkDestroyInstance(instance, nullptr);
