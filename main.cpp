@@ -18,6 +18,31 @@ const std::vector<const char*> validationLayers = {
 	    "VK_LAYER_LUNARG_core_validation" // Does very basic checks on shaders etc.
 };
 
+	//Callback register helper function
+	VkResult CreateDebugUtilsMessengerEXT(
+			VkInstance instance, 
+			const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
+			const VkAllocationCallbacks* pAllocator, 
+			VkDebugUtilsMessengerEXT* pCallback){
+	    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+	    if (func != nullptr) {
+	        return func(instance, pCreateInfo, pAllocator, pCallback);
+	    } else {
+	        return VK_ERROR_EXTENSION_NOT_PRESENT;
+	    }
+	}
+	
+	//Callback destruction helper function
+	void DestroyDebugUtilsMessengerEXT(
+			VkInstance instance, 
+			VkDebugUtilsMessengerEXT callback, 
+			const VkAllocationCallbacks* pAllocator){
+		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr) {
+			func(instance, callback, pAllocator);
+		}
+	}
+
 	class ShaderTester {
 	public: 
 
@@ -30,9 +55,21 @@ const std::vector<const char*> validationLayers = {
 		}
 
 	private:
+		
+		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+				VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+				VkDebugUtilsMessageTypeFlagsEXT messageType,
+				const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+				void* pUserData){
+			std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+			return VK_FALSE;
+		}
+
 
 		GLFWwindow* window;
 		VkInstance instance;
+		VkDebugUtilsMessengerEXT callback;
 
 		// Open a window, using the vulkan API for rendering, which is WIDTHxHEIGHT 
 		// in size (and fixed size).
@@ -124,8 +161,30 @@ const std::vector<const char*> validationLayers = {
 				}
 			}
 
+			void setupDebugCallback(){
+				VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+					createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+					// All warnings, errors etc, but not normal information
+					createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
+						| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
+						| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+					createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+			   		//	| VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT 
+					//	| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+					// Print the information
+					createInfo.pfnUserCallback = debugCallback;
+					// TODO: Pass a pointer to the relevant shader.
+					createInfo.pUserData = nullptr;
+				
+				//Attempt to add the callback.	
+				if(CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &callback) != VK_SUCCESS){
+					throw std::runtime_error("failed to set up debug callback!");
+				}
+			}
+
 		void initVulkan(){
-			createInstance();	
+			createInstance();
+			setupDebugCallback();	
 		}
 
 		void mainLoop(){
@@ -137,6 +196,8 @@ const std::vector<const char*> validationLayers = {
 		}
 		
 		void cleanup(){
+			DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
+
 			vkDestroyInstance(instance, nullptr);
 
 		    glfwDestroyWindow(window);
