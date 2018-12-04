@@ -56,6 +56,7 @@ const std::vector<const char*> validationLayers = {
 
 	private:
 		
+		// The callback routine that any testbed should use.
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 				VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 				VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -66,11 +67,12 @@ const std::vector<const char*> validationLayers = {
 			return VK_FALSE;
 		}
 
-
+		// All the class members
 		GLFWwindow* window;
 		VkInstance instance;
 		VkDebugUtilsMessengerEXT callback;
-
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		
 		// Open a window, using the vulkan API for rendering, which is WIDTHxHEIGHT 
 		// in size (and fixed size).
 		void initWindow(){
@@ -181,10 +183,103 @@ const std::vector<const char*> validationLayers = {
 					throw std::runtime_error("failed to set up debug callback!");
 				}
 			}
+				
+				//Helps finding queue families on a device
+				struct QueueFamilyIndices{
+					std::optional<uint32_t> graphicsFamily;
+						bool isComplete(){
+							return graphicsFamily.has_value();
+					}
+				};
+
+				// Find the Queuefamilies with graphics capabilities
+				QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device){
+					QueueFamilyIndices indices;
+					
+					//Get the queuefamilies
+					uint32_t queueFamilyCount = 0;
+					vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+					std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+					vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+					// Check each queue for graphics capability
+					int i = 0;
+					for(const auto & queueFamily : queueFamilies){
+						if(queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
+							indices.graphicsFamily = i;
+						}
+
+						if(indices.isComplete()){
+							break;
+						}
+
+						i++;
+					}
+
+					return indices;
+				}
+
+				//Check if a GPU is suitable
+				bool isDeviceSuitable(VkPhysicalDevice device){
+					QueueFamilyIndices indices = findQueueFamilies(device);
+
+					if(!indices.isComplete()) return false;
+						
+					return true;
+				}			
+	
+				//Give a device a score. TODO: make sure it's deterministic
+				int getDeviceScore(VkPhysicalDevice device){
+					int score = 1;
+					
+					VkPhysicalDeviceProperties deviceProperties;
+					vkGetPhysicalDeviceProperties(device, &deviceProperties);
+					
+					VkPhysicalDeviceFeatures deviceFeatures;
+					vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+										
+					if(isDeviceSuitable(device)){
+						return score;
+					} else {
+						return 0;
+					}
+				}
+			
+			// Choose a GPU!
+			void selectPhysicalDevice(){
+				// Get the devices
+				uint32_t deviceCount = 0;
+				uint32_t deviceScore = 0;
+				
+				vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+				std::vector<VkPhysicalDevice> devices(deviceCount);
+				vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());	
+
+				if(devices.size() == 0) {
+					throw std::runtime_error("No GPUs found!");
+				}
+
+				// Select a device that is most suitable
+				for(int i = 0; i < devices.size(); i++){
+					VkPhysicalDevice device = devices[i];
+					if(device != VK_NULL_HANDLE && getDeviceScore(device) > deviceScore){
+						physicalDevice = device;
+						deviceScore = getDeviceScore(device);
+					}
+				}				
+
+				// Ensure a device is selected.
+				if(physicalDevice == VK_NULL_HANDLE){
+					throw std::runtime_error("No suitable GPUs found!");
+				}
+			}
 
 		void initVulkan(){
 			createInstance();
-			setupDebugCallback();	
+			setupDebugCallback();
+			selectPhysicalDevice();	
 		}
 
 		void mainLoop(){
