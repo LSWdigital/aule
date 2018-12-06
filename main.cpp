@@ -116,8 +116,10 @@ const std::vector<const char*> deviceExtensions = {
 		VkFormat swapChainImageFormat;
 		VkExtent2D swapChainExtent;
 
-		// pipeline
+		// Vulkan Rendering
+		VkRenderPass renderPass;
 		VkPipelineLayout pipelineLayout;
+		VkPipeline graphicsPipeline;
 		
 		// Open a window, using the vulkan API for rendering, which is WIDTHxHEIGHT 
 		// in size (and fixed size).
@@ -587,6 +589,42 @@ const std::vector<const char*> deviceExtensions = {
 
 				return shaderModule;
 			}
+			
+			void createRenderPass(){
+				// The attachment (output location)
+				VkAttachmentDescription colourAttachment = {};
+				colourAttachment.format = swapChainImageFormat;
+				colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT; // No multisampling
+				colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+				colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+				colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; 	// No stencilling
+				colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;  // No stencilling
+				colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				
+				// one subpass that does the rendering
+				VkAttachmentReference colourAttachmentRef = {};
+				colourAttachmentRef.attachment = 0;
+				colourAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+				// How to use the rendering pass in the pipeline.
+				VkSubpassDescription subpass = {};
+				subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+				subpass.colorAttachmentCount = 1;
+				subpass.pColorAttachments = & colourAttachmentRef;
+
+				// Build the render pass
+				VkRenderPassCreateInfo renderPassInfo = {};
+				renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+				renderPassInfo.attachmentCount = 1;
+				renderPassInfo.pAttachments = &colourAttachment;
+				renderPassInfo.subpassCount = 1;
+				renderPassInfo.pSubpasses = &subpass;
+
+				if (vkCreateRenderPass(lDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+					    throw std::runtime_error("failed to create render pass!");
+				}
+			}
 
 			void createGraphicsPipeline(std::string shader){
 				//Vertex shader
@@ -684,7 +722,27 @@ const std::vector<const char*> deviceExtensions = {
 				if (vkCreatePipelineLayout(lDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 					throw std::runtime_error("failed to create pipeline layout!");
 				}
+				
+				VkGraphicsPipelineCreateInfo pipelineInfo = {};
+				pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+				pipelineInfo.stageCount = 2;
+				pipelineInfo.pStages = shaderStages;
+				pipelineInfo.pVertexInputState = &vertexInputInfo;
+				pipelineInfo.pInputAssemblyState = &inputAssembly;
+				pipelineInfo.pViewportState = &viewportState;
+				pipelineInfo.pRasterizationState = &rasterizer;
+				pipelineInfo.pMultisampleState = &multisampling;
+				pipelineInfo.pColorBlendState = &colorBlending;
 
+				pipelineInfo.layout = pipelineLayout;
+				pipelineInfo.renderPass = renderPass;
+				pipelineInfo.subpass = 0;
+
+				if (vkCreateGraphicsPipelines(lDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+					throw std::runtime_error("failed to create graphics pipeline!");
+				}
+				
+				// Clean up the shaders.
 				vkDestroyShaderModule(lDevice, vertShader, nullptr);
 				vkDestroyShaderModule(lDevice, fragShader, nullptr);
 			}
@@ -697,6 +755,7 @@ const std::vector<const char*> deviceExtensions = {
 			createLogicalDevice();
 			createSwapChain();
 			createImageViews();
+			createRenderPass();
 			createGraphicsPipeline(shader);
 		}
 
@@ -709,12 +768,17 @@ const std::vector<const char*> deviceExtensions = {
 		}
 		
 		void cleanup(){
+			vkDestroyPipeline(lDevice, graphicsPipeline, nullptr);
 			vkDestroyPipelineLayout(lDevice, pipelineLayout, nullptr);
+			vkDestroyRenderPass(lDevice, renderPass, nullptr);
+
 			for(auto imageView : swapChainImageViews){
 				vkDestroyImageView(lDevice, imageView, nullptr);
 			}
 			vkDestroySwapchainKHR(lDevice, swapChain, nullptr);
+			
 			vkDestroyDevice(lDevice, nullptr);
+			
 			DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
 			
 			vkDestroySurfaceKHR(instance, surface, nullptr);
