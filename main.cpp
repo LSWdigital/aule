@@ -16,11 +16,11 @@
 #define HEIGHT 1080
 
 const std::vector<const char*> validationLayers = {
-	    "VK_LAYER_LUNARG_core_validation" // Does very basic checks on shaders etc.
+	"VK_LAYER_LUNARG_core_validation" // Does very basic checks on shaders etc.
 };
 
 const std::vector<const char*> deviceExtensions = {
-	    VK_KHR_SWAPCHAIN_EXTENSION_NAME // Ability to output to a display(s buffer)
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME // Ability to output to a display(s buffer)
 };
 
 	//Callback register helper function
@@ -265,7 +265,12 @@ const std::vector<const char*> deviceExtensions = {
 					if(!indices.isComplete()) return false;
 
 					if(!checkDeviceExtensionSupport(device)) return false;
-						
+					
+					bool swapChainAdequate = false;
+					SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+					swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+					if(!swapChainAdequate) return false;
+
 					return true;
 				}			
 	
@@ -361,6 +366,57 @@ const std::vector<const char*> deviceExtensions = {
 
 				//Get the present queue
 				vkGetDeviceQueue(lDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);	
+			}
+			
+			struct SwapChainSupportDetails {
+				VkSurfaceCapabilitiesKHR capabilities;
+				std::vector<VkSurfaceFormatKHR> formats;
+				std::vector<VkPresentModeKHR> presentModes;
+			};
+
+			SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
+				SwapChainSupportDetails details;
+				
+				// Get surface capabilities, nicely provided in a struct
+				vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+				// Get the formats, not so nicely provided.
+				uint32_t formatCount;
+				vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+				if(formatCount != 0){
+					details.formats.resize(formatCount);
+					vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+				}
+
+				// Get present modes
+				uint32_t presentModeCount;
+				vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+				if(presentModeCount != 0){
+					details.presentModes.resize(presentModeCount);
+					vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+				}
+
+				return details;
+			}
+
+			VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats){
+				// Select 24 bit sRGB, if we can choose anything
+				if (availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED){
+					return {VK_FORMAT_B8G8R8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+				}
+
+				// Select 24 bit sRGB, if we can choose it from a list
+				for(const auto& availableFormat: availableFormats){
+					if (availableFormat.format == VK_FORMAT_B8G8R8_UNORM && 
+							availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR){
+						return availableFormat;						
+					}
+				}
+
+				// Select something if we can't have 24 bit sRGB
+				return availableFormats[0];
 			}
 
 			void createSurface() {
