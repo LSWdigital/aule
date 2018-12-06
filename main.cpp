@@ -81,6 +81,7 @@ const std::vector<const char*> deviceExtensions = {
 		VkDevice lDevice;
 		VkQueue graphicsQueue;
 		VkQueue presentQueue;
+		VkSwapchainKHR swapChain;
 
 		
 		// Open a window, using the vulkan API for rendering, which is WIDTHxHEIGHT 
@@ -419,6 +420,81 @@ const std::vector<const char*> deviceExtensions = {
 				return availableFormats[0];
 			}
 
+			VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes) {
+				// Choose a present mode. We want to post as many frames as possible.
+				// FIFO is guaranteed, but not fastest
+				VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
+
+				for (const auto& availablePresentMode : availablePresentModes) {
+					if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {   // Figure out best framerate TODO
+						bestMode = availablePresentMode;
+					} else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+						bestMode = availablePresentMode;
+					}
+				}
+
+					    return bestMode;
+			}
+
+			VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+				if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+					// This is almost always a sensible value
+					return capabilities.currentExtent;
+				} else {
+					// We have an incredibly large extent. We want to clamp it to the size of the window.
+					VkExtent2D actualExtent = {WIDTH, HEIGHT};
+
+					actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
+					actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
+					return actualExtent;
+				}
+			}
+
+			void createSwapChain(){
+				SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+
+				VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+				VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+				VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+				uint32_t imageCount = swapChainSupport.capabilities.minImageCount; // Draw as many frames as possible, to test performance
+
+				//Make the swapchain
+				VkSwapchainCreateInfoKHR createInfo = {};
+				createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+				createInfo.surface = surface;
+				createInfo.minImageCount = imageCount;
+				createInfo.imageFormat = surfaceFormat.format;
+				createInfo.imageColorSpace = surfaceFormat.colorSpace;
+				createInfo.imageExtent = extent;
+				createInfo.imageArrayLayers = 1; // this value is for fancy 3d stuff, we only need one view
+				createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // We want to draw straight to the screen, no post-processing.
+
+				//Handle communication with the swapchain
+				QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+				uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+				if(indices.graphicsFamily != indices.presentFamily){
+					createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT; //Simple, but inefficient, sharing across multiple queue families.
+					createInfo.queueFamilyIndexCount = 2;
+					createInfo.pQueueFamilyIndices = queueFamilyIndices;
+				} else {
+					createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; //Simple, efficient, exclusive to one queue family
+					createInfo.queueFamilyIndexCount = 0;
+					createInfo.pQueueFamilyIndices = nullptr;
+				}
+
+				createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+				createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+				createInfo.presentMode = presentMode;
+				createInfo.clipped = VK_FALSE; // Render it even if we can't see it, to prevent clipping affecting performance tests 
+				createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+				if (vkCreateSwapchainKHR(lDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
+					throw std::runtime_error("failed to create swap chain!");
+				}
+			}
+
 			void createSurface() {
 				if(glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS){
 					throw std::runtime_error("failed to create window surface!");
@@ -431,6 +507,7 @@ const std::vector<const char*> deviceExtensions = {
 			createSurface();
 			selectPhysicalDevice();
 			createLogicalDevice();
+			createSwapChain();
 		}
 
 		void mainLoop(){
@@ -442,6 +519,7 @@ const std::vector<const char*> deviceExtensions = {
 		}
 		
 		void cleanup(){
+			vkDestroySwapchainKHR;
 			vkDestroyDevice(lDevice, nullptr);
 			DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
 			
