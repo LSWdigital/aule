@@ -75,13 +75,20 @@ const std::vector<const char*> deviceExtensions = {
 		// All the class members
 		VkSurfaceKHR surface;
 		GLFWwindow* window;
+
 		VkInstance instance;
 		VkDebugUtilsMessengerEXT callback;
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		VkDevice lDevice;
+
 		VkQueue graphicsQueue;
 		VkQueue presentQueue;
+
 		VkSwapchainKHR swapChain;
+		std::vector<VkImage> swapChainImages;
+		std::vector<VkImageView> swapChainImageViews;
+		VkFormat swapChainImageFormat;
+		VkExtent2D swapChainExtent;
 
 		
 		// Open a window, using the vulkan API for rendering, which is WIDTHxHEIGHT 
@@ -454,8 +461,11 @@ const std::vector<const char*> deviceExtensions = {
 				SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
 				VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+				swapChainImageFormat = surfaceFormat.format;
+
 				VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
 				VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+			swapChainExtent = extent;
 
 				uint32_t imageCount = swapChainSupport.capabilities.minImageCount; // Draw as many frames as possible, to test performance
 
@@ -493,11 +503,46 @@ const std::vector<const char*> deviceExtensions = {
 				if (vkCreateSwapchainKHR(lDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
 					throw std::runtime_error("failed to create swap chain!");
 				}
+				
+				// Get the swap chain images
+				vkGetSwapchainImagesKHR(lDevice, swapChain, &imageCount, nullptr);
+				swapChainImages.resize(imageCount);
+				vkGetSwapchainImagesKHR(lDevice, swapChain, &imageCount, swapChainImages.data());
+
 			}
 
 			void createSurface() {
 				if(glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS){
 					throw std::runtime_error("failed to create window surface!");
+				}
+			}
+
+			void createImageViews(){
+				swapChainImageViews.resize(swapChainImages.size());
+				for(size_t i = 0; i < swapChainImages.size(); i++){
+					VkImageViewCreateInfo createInfo = {};
+					createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+					createInfo.image = swapChainImages[i];
+					
+					createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+					createInfo.format = swapChainImageFormat;
+					
+					// No fancy colour things
+					createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+					createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+					createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+					createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+					// No fancy display stuff
+					createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+					createInfo.subresourceRange.baseMipLevel = 0;
+					createInfo.subresourceRange.levelCount = 1;
+					createInfo.subresourceRange.baseArrayLayer = 0;
+					createInfo.subresourceRange.layerCount = 1;
+
+					if (vkCreateImageView(lDevice, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+				    	throw std::runtime_error("failed to create image views!");
+					}	
 				}
 			}
 
@@ -508,6 +553,7 @@ const std::vector<const char*> deviceExtensions = {
 			selectPhysicalDevice();
 			createLogicalDevice();
 			createSwapChain();
+			createImageViews();
 		}
 
 		void mainLoop(){
@@ -519,7 +565,10 @@ const std::vector<const char*> deviceExtensions = {
 		}
 		
 		void cleanup(){
-			vkDestroySwapchainKHR;
+			for(auto imageView : swapChainImageViews){
+				vkDestroyImageView(lDevice, imageView, nullptr);
+			}
+			vkDestroySwapchainKHR(lDevice, swapChain, nullptr);
 			vkDestroyDevice(lDevice, nullptr);
 			DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
 			
