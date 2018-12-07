@@ -229,9 +229,9 @@ const std::vector<const char*> deviceExtensions = {
 					createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
 						| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
 						| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-					createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-			   		//	| VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT 
-					//	| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+					createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+			   			| VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT 
+						| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 					// Print the information
 					createInfo.pfnUserCallback = debugCallback;
 					// TODO: Pass a pointer to the relevant shader.
@@ -414,7 +414,7 @@ const std::vector<const char*> deviceExtensions = {
 				vkGetDeviceQueue(lDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);
 
 				//Get the present queue
-				vkGetDeviceQueue(lDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);	
+				vkGetDeviceQueue(lDevice, indices.graphicsFamily.value(), 0, &presentQueue);	
 			}
 			
 			struct SwapChainSupportDetails {
@@ -656,7 +656,7 @@ const std::vector<const char*> deviceExtensions = {
 
 			void createGraphicsPipeline(std::string shader){
 				//Vertex shader
-				auto vertShaderCode = readFile("vert.spv");
+				auto vertShaderCode = readFile("./vert.spv");
 				VkShaderModule vertShader = createShaderModule(vertShaderCode);
 				
 				VkPipelineShaderStageCreateInfo vertShaderInfo = {};
@@ -732,7 +732,10 @@ const std::vector<const char*> deviceExtensions = {
 				
 				// No colour blending
 				VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-				colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_A_BIT;
+				colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT 
+													| VK_COLOR_COMPONENT_G_BIT 
+													| VK_COLOR_COMPONENT_B_BIT 
+													| VK_COLOR_COMPONENT_A_BIT;
 				colorBlendAttachment.blendEnable = VK_FALSE;
 
 				VkPipelineColorBlendStateCreateInfo colorBlending = {};
@@ -855,7 +858,7 @@ const std::vector<const char*> deviceExtensions = {
 					// Bind render pass to the pipeline
 					vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 					// Draw things.
-					vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+					vkCmdDraw(commandBuffers[i], 6, 1, 0, 0);
 					// Finish the rendering.
 					vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -936,7 +939,7 @@ const std::vector<const char*> deviceExtensions = {
 				presentInfo.pSwapchains = swapChains;
 				presentInfo.pImageIndices = &imageIndex;
 				
-				vkQueuePresentKHR(presentQueue, &presentInfo);
+			    vkQueuePresentKHR(presentQueue, &presentInfo);
 			}
 
 		void mainLoop(){
@@ -992,7 +995,7 @@ const std::vector<const char*> deviceExtensions = {
 		ShaderTester testbed;
 
 		try {
-			testbed.run("frag.spv");
+			testbed.run("./frag.spv");
 		} catch (const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 			return EXIT_FAILURE;
