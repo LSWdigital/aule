@@ -4,6 +4,7 @@
 //useful things
 #include <cstring>
 #include <set>
+#include <iostream>
 #include <fstream>
 #include <chrono>
 #include <thread>
@@ -59,7 +60,7 @@ const std::vector<const char*> deviceExtensions = {
 		void run(std::string shader){
 			initWindow();
 			initVulkan(shader);
-			mainLoop();
+			mainLoop(shader);
 			cleanup();
 		}
 
@@ -323,7 +324,7 @@ const std::vector<const char*> deviceExtensions = {
 					return true;
 				}			
 	
-				//Give a device a score. TODO: make sure it's deterministic
+				//Give a device a score. 
 				int getDeviceScore(VkPhysicalDevice device){
 					int score = 1;
 					
@@ -474,7 +475,7 @@ const std::vector<const char*> deviceExtensions = {
 				VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
 
 				for (const auto& availablePresentMode : availablePresentModes) {
-					if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {   // Figure out best framerate TODO
+					if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) { 
 						return availablePresentMode;
 					} else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
 						bestMode = availablePresentMode;
@@ -940,16 +941,22 @@ const std::vector<const char*> deviceExtensions = {
 				presentInfo.pImageIndices = &imageIndex;
 				
 			    vkQueuePresentKHR(presentQueue, &presentInfo);
+				vkQueueWaitIdle(presentQueue);
 			}
 
-		void mainLoop(){
-			//TODO: Change this to handle data collection etc...
-			
+		void mainLoop(std::string shader){
+			clock_t time = clock();
+			std::ofstream dataFile;
+			dataFile.open(shader.append(".data"));
 			while (!glfwWindowShouldClose(window)) {
 				glfwPollEvents();
 				drawFrame();
+				float frameTime_us = float(clock() - time) * 1000000.0 / CLOCKS_PER_SEC;
+				dataFile << std::to_string(frameTime_us) << "\n";
+				time = clock();
 			}
-
+			
+			dataFile.close();
 			vkDeviceWaitIdle(lDevice);
 		}
 		
@@ -995,7 +1002,7 @@ const std::vector<const char*> deviceExtensions = {
 		ShaderTester testbed;
 
 		try {
-			testbed.run("./frag.spv");
+			testbed.run("./raymarch.spv");
 		} catch (const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 			return EXIT_FAILURE;
