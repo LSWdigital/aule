@@ -12,7 +12,7 @@ VulkanTest: main.cpp
 .PHONY: test clean
 
 test: VulkanTest
-	    ./VulkanTest
+	    ./VulkanTest rec.spv
 
 clean:
 	    rm -f VulkanTest
