@@ -9,7 +9,7 @@ VulkanTest: main.cpp
 	    g++ $(CFLAGS) -o Aule main.cpp $(LDFLAGS)
 
 
-.PHONY: clean 
+.PHONY: clean
 
 clean:
 	    rm -f Aule

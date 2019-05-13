@@ -22,6 +22,7 @@
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation" // Does very basic checks on shaders etc.
+	// "VK_LAYER_LUNARG_api_dump" No more dumping!
 };
 
 const std::vector<const char*> deviceExtensions = {
@@ -231,8 +232,8 @@ const std::vector<const char*> deviceExtensions = {
 						| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
 						| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 					createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-			   			| VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT 
-						| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+			   			| VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+						//| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 					// Print the information
 					createInfo.pfnUserCallback = debugCallback;
 					// TODO: Pass a pointer to the relevant shader.
@@ -997,12 +998,12 @@ const std::vector<const char*> deviceExtensions = {
 	};
 
 	//Create and run all the tests
-	int main(){	
+	int main(int argc, char *argv[]){	
     	
 		ShaderTester testbed;
 
 		try {
-			testbed.run("./raymarch.spv");
+			testbed.run(argv[1]);
 		} catch (const std::exception& e) {
 			std::cerr << e.what() << std::endl;
 			return EXIT_FAILURE;
