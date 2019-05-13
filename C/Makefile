@@ -6,13 +6,10 @@ CFLAGS = -std=c++17 -I$(VULKAN_SDK_PATH)/include
 LDFLAGS = -L$(VULKAN_SDK_PATH)/lib `pkg-config --static --libs glfw3` -lvulkan
 
 VulkanTest: main.cpp
-	    g++ $(CFLAGS) -o VulkanTest main.cpp $(LDFLAGS)
+	    g++ $(CFLAGS) -o Aule main.cpp $(LDFLAGS)
 
 
-.PHONY: test clean
-
-test: VulkanTest
-	    ./VulkanTest
+.PHONY: clean 
 
 clean:
-	    rm -f VulkanTest
+	    rm -f Aule
